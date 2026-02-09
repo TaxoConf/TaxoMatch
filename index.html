@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaxoMatch — Paper–Reviewer Matching System</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f6f3;
+  --paper: #ffffff;
+  --ink: #1c1c1c;
+  --text: #333333;
+  --muted: #5f5f5f;
+  --faint: #999999;
+  --rule: #c8c5be;
+  --rule-lt: #dddbd6;
+  --accent: #8b1a1a;
+  --blue: #1a4a8b;
+  --teal: #1a6b5a;
+  --green: #2d6a30;
+  --warn: #9a6700;
+  --serif: 'Libre Baskerville', 'Georgia', serif;
+  --sans: 'Source Sans 3', 'Helvetica Neue', sans-serif;
+  --mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  font-size: 13px;
+}
+#app { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: 200px; background: var(--paper); border-right: 1px solid var(--rule);
+  padding: 28px 0; display: flex; flex-direction: column; flex-shrink: 0;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.sidebar-brand { padding: 0 20px; margin-bottom: 28px; }
+.sidebar-brand h1 { font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--ink); line-height: 1.15; }
+.sidebar-brand .sub { font-size: 10px; color: var(--faint); margin-top: 5px; line-height: 1.45; font-style: italic; }
+.sidebar-brand .bar { width: 36px; height: 2px; background: var(--accent); margin-top: 10px; }
+.sidebar nav { flex: 1; padding: 0 8px; }
+.nav-group { font-size: 8.5px; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: 1.5px; padding: 16px 12px 3px; }
+.nav-btn {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 7px 12px; border: none; cursor: pointer; text-align: left;
+  background: transparent; color: var(--muted); font-family: var(--sans);
+  font-size: 12.5px; font-weight: 400; border-left: 2.5px solid transparent;
+  transition: all 0.12s;
+}
+.nav-btn:hover { background: #f4f3ef; }
+.nav-btn.active { background: #eeece6; color: var(--accent); font-weight: 700; border-left-color: var(--accent); }
+.nav-btn .num { font-family: var(--mono); font-size: 10px; color: var(--faint); min-width: 20px; }
+.nav-btn.active .num { color: var(--accent); }
+.sidebar-footer { padding: 14px 20px; border-top: 1px solid var(--rule-lt); }
+.sidebar-footer .meta { font-family: var(--mono); font-size: 8.5px; color: var(--faint); line-height: 1.6; }
+.data-indicator-user { color: var(--green); font-weight: 700; }
+
+/* Main */
+.main { flex: 1; padding: 30px 44px; max-width: 960px; overflow-y: auto; }
+
+/* Section titles */
+.section-title { margin-bottom: 22px; padding-bottom: 10px; border-bottom: 2.5px solid var(--ink); }
+.section-title h2 { font-family: var(--serif); font-size: 21px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+.section-title .sub { font-size: 12.5px; color: var(--muted); margin-top: 5px; font-style: italic; }
+.subsection {
+  font-family: var(--serif); font-size: 14.5px; font-weight: 700; color: var(--ink);
+  margin: 24px 0 10px; padding-bottom: 5px; border-bottom: 1px solid var(--rule-lt);
+}
+.subsection .num { color: var(--accent); margin-right: 6px; }
+
+/* Academic table */
+.acad-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 12.5px; }
+.acad-table thead tr { border-top: 2.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); }
+.acad-table th { padding: 8px 10px; font-weight: 700; color: var(--ink); font-size: 11px; letter-spacing: 0.3px; }
+.acad-table td { padding: 6px 10px; color: var(--text); vertical-align: middle; border-bottom: 1px solid #eae8e3; }
+.acad-table tr.clickable { cursor: pointer; }
+.acad-table tr.clickable:hover { background: #f4f3ef; }
+.acad-table tr.selected td { background: #f0eee8; }
+figcaption.caption {
+  font-family: var(--sans); font-size: 11px; color: var(--muted); margin-top: 6px;
+  font-style: italic; padding-bottom: 8px; border-bottom: 2px solid var(--ink); line-height: 1.45;
+}
+
+/* Stat box */
+.stat-box {
+  border: 1px solid var(--rule); padding: 14px 18px; flex: 1 1 150px;
+  min-width: 130px; background: var(--paper);
+}
+.stat-box .label { font-size: 9.5px; color: var(--faint); text-transform: uppercase; letter-spacing: 1.3px; margin-bottom: 4px; }
+.stat-box .value { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; }
+.stat-box .note { font-size: 10.5px; color: var(--faint); margin-top: 5px; font-style: italic; }
+
+/* Distribution bar */
+.dist-bar-label { font-size: 10.5px; color: var(--faint); margin-bottom: 3px; font-weight: 600; letter-spacing: 0.5px; }
+.dist-bar-track { display: flex; gap: 1px; height: 12px; border: 1px solid var(--rule-lt); overflow: hidden; background: #f0efeb; }
+.dist-bar-seg { min-width: 2px; }
+.dist-bar-legend { display: flex; flex-wrap: wrap; gap: 1px 10px; margin-top: 3px; }
+.dist-bar-legend span { font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
+.dist-bar-legend .pct { font-weight: 700; }
+.dist-bar-legend .topicname { font-family: var(--sans); font-size: 10px; }
+
+/* Upload */
+.drop-zone {
+  border: 2px dashed var(--rule); background: var(--paper); padding: 28px 20px;
+  text-align: center; cursor: pointer; transition: all 0.15s;
+}
+.drop-zone:hover, .drop-zone.dragging { border-color: var(--accent); background: #faf5f5; }
+.drop-zone .label { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.drop-zone .hint { font-size: 11px; color: var(--faint); }
+.drop-zone .filename { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--blue); }
+.status-badge {
+  font-size: 11.5px; padding: 8px 14px; line-height: 1.5; margin-bottom: 10px; margin-top: 8px;
+}
+.status-badge.success { color: var(--green); background: #e8f5e9; border: 1px solid #a5d6a7; }
+.status-badge.error { color: var(--accent); background: #fbe9e7; border: 1px solid #ef9a9a; }
+.status-badge.info { color: var(--blue); background: #e8eaf6; border: 1px solid #9fa8da; }
+.code-block {
+  font-family: var(--mono); font-size: 10.5px; background: #f0efeb; border: 1px solid var(--rule-lt);
+  padding: 10px 14px; overflow-x: auto; line-height: 1.6; margin: 8px 0 12px; color: var(--text); white-space: pre-wrap;
+}
+.btn-outline {
+  font-family: var(--sans); font-size: 11px; background: none; padding: 5px 12px; cursor: pointer; border: 1px solid;
+}
+.btn-outline.blue { color: var(--blue); border-color: var(--blue); }
+.btn-outline.accent { color: var(--accent); border-color: var(--accent); }
+.btn-outline.ink { color: var(--ink); border-color: var(--ink); }
+
+/* Card */
+.card { border: 1px solid var(--rule); padding: 16px 22px; background: var(--paper); }
+.card .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 4px; }
+.card .tag.accent { color: var(--accent); }
+.card .tag.blue { color: var(--blue); }
+.card .title { font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 8px; line-height: 1.35; }
+.card p { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+
+/* Sort buttons */
+.sort-btn {
+  padding: 4px 12px; font-size: 11px; font-family: var(--sans); cursor: pointer;
+  background: transparent; border: 1px solid var(--rule); color: var(--muted);
+}
+.sort-btn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+/* Misc */
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-12 { gap: 12px; }
+.gap-24 { gap: 24px; }
+.gap-8 { gap: 8px; }
+.mb-22 { margin-bottom: 22px; }
+.mb-14 { margin-bottom: 14px; }
+.mb-28 { margin-bottom: 28px; }
+.mb-16 { margin-bottom: 16px; }
+.mt-8 { margin-top: 8px; }
+.mt-14 { margin-top: 14px; }
+.mt-16 { margin-top: 16px; }
+.sticky-20 { position: sticky; top: 20px; }
+.mono { font-family: var(--mono); }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.hidden { display: none; }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.page-enter { animation: fadeIn 0.25s ease; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule-lt); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--rule); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// BACKEND: Taxonomy, Data Generation, Distance Computation
+// ═══════════════════════════════════════════════════════════════════════════
+
+const TAXONOMY_TREE = {
+  id:"root",name:"Computer Science",children:[
+    {id:"ml",name:"Machine Learning",children:[
+      {id:"dl",name:"Deep Learning",children:[
+        {id:"cnn",name:"CNNs",children:[]},{id:"transformer",name:"Transformers",children:[]},{id:"diffusion",name:"Diffusion Models",children:[]}
+      ]},
+      {id:"rl",name:"Reinforcement Learning",children:[
+        {id:"mab",name:"Multi-Armed Bandits",children:[]},{id:"policy",name:"Policy Gradient",children:[]}
+      ]},
+      {id:"gnn",name:"Graph Neural Networks",children:[
+        {id:"gcn",name:"GCN",children:[]},{id:"gat",name:"GAT",children:[]},{id:"mpnn",name:"Message Passing",children:[]}
+      ]}
+    ]},
+    {id:"nlp",name:"Natural Language Processing",children:[
+      {id:"lm",name:"Language Models",children:[
+        {id:"llm",name:"Large Language Models",children:[]},{id:"pretrain",name:"Pre-training",children:[]}
+      ]},
+      {id:"ie",name:"Information Extraction",children:[
+        {id:"ner",name:"Named Entity Recognition",children:[]},{id:"re",name:"Relation Extraction",children:[]}
+      ]}
+    ]},
+    {id:"ir",name:"Information Retrieval",children:[
+      {id:"recsys",name:"Recommender Systems",children:[
+        {id:"seqrec",name:"Sequential Rec.",children:[]},{id:"cf",name:"Collaborative Filtering",children:[]},{id:"ctrrec",name:"CTR Prediction",children:[]}
+      ]},
+      {id:"search",name:"Search & Ranking",children:[
+        {id:"dense",name:"Dense Retrieval",children:[]},{id:"ltr",name:"Learning to Rank",children:[]}
+      ]}
+    ]},
+    {id:"cv",name:"Computer Vision",children:[
+      {id:"objdet",name:"Object Detection",children:[
+        {id:"yolo",name:"YOLO Family",children:[]},{id:"detr",name:"DETR",children:[]}
+      ]},
+      {id:"seg",name:"Segmentation",children:[
+        {id:"semseg",name:"Semantic Seg.",children:[]},{id:"instseg",name:"Instance Seg.",children:[]}
+      ]}
+    ]}
+  ]
+};
+
+function getLeaves(n){if(!n.children||!n.children.length)return[n];return n.children.flatMap(getLeaves);}
+const ALL_LEAVES=getLeaves(TAXONOMY_TREE);
+const LEAF_IDS=ALL_LEAVES.map(l=>l.id);
+const NUM_LEAVES=LEAF_IDS.length;
+
+function seededRng(s){return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646;};}
+function genDist(seed,sp=4){
+  const r=seededRng(seed),raw=Array(NUM_LEAVES).fill(0),act=[];
+  for(let i=0;i<sp;i++){let x=Math.floor(r()*NUM_LEAVES);while(act.includes(x))x=Math.floor(r()*NUM_LEAVES);act.push(x);raw[x]=r()*0.8+0.2;}
+  const s=raw.reduce((a,b)=>a+b,0);return raw.map(v=>s>0?v/s:0);
+}
+
+const FN=["Wei","Yuki","Priya","Marcus","Elena","Chen","Amir","Sarah","Jin","Olga","Raj","Lena","Kai","Fatima","Alex","Nina","Davi","Soo","Ravi","Maya"];
+const LN=["Zhang","Tanaka","Sharma","Weber","Petrov","Liu","Hassan","Kim","Chen","Park","Gupta","Mueller","Sato","Wang","Lee","Garcia","Patel","Nguyen","Suzuki","Roy"];
+const INST=["MIT","Stanford","CMU","ETH Zürich","Tsinghua","Oxford","UC Berkeley","KAIST","Peking Univ.","Max Planck","U of Toronto","NUS","TU Munich","IIT Bombay","Cambridge"];
+const TITLES=[
+  "Graph Neural Networks for Sequential Recommendation","Efficient Transformer Architectures for Long Document Understanding",
+  "Diffusion Models Meet Collaborative Filtering","Dense Retrieval with Multi-Granularity Representations",
+  "Policy Gradient Methods for Combinatorial Optimization","Cross-Lingual Named Entity Recognition via Pre-trained Models",
+  "Semantic Segmentation with Vision Transformers","Multi-Armed Bandits for Online Learning to Rank",
+  "Large Language Models for Relation Extraction","GCN-based Click-Through Rate Prediction",
+  "Instance Segmentation via Message Passing Networks","YOLO-Enhanced Object Detection in Autonomous Driving",
+  "GAT for Knowledge Graph Completion","Pre-training Strategies for Scientific Text Understanding",
+  "DETR Extensions for Real-Time Detection","Collaborative Filtering with Contrastive Learning",
+  "Sequential Recommendation with Causal Inference","Learning to Rank with Neural Architecture Search",
+  "CNN-based Feature Extraction for Medical Imaging","Diffusion-based Text Generation with Controllable Attributes",
+  "Multi-Modal Transformers for Video Understanding","Reinforcement Learning for Dynamic Pricing",
+  "Graph Attention Networks for Social Recommendation","Prompt Tuning for Few-Shot Information Extraction",
+  "Sparse Mixture-of-Experts for Efficient LLM Inference"
+];
+
+function genSynthPapers(){
+  return TITLES.map((t,i)=>({id:`P-${String(i+1).padStart(3,'0')}`,title:t,
+    distribution:genDist(i*137+42,3+(i%3)),year:2025,
+    abstract:`This paper presents novel approaches to ${t.toLowerCase()}. We propose a framework achieving state-of-the-art results on multiple benchmarks.`}));
+}
+function genSynthReviewers(){
+  return Array.from({length:40},(_,i)=>{const r=seededRng(i*73+11);
+    return{id:`R-${String(i+1).padStart(3,'0')}`,name:`${FN[i%20]} ${LN[Math.floor(r()*20)]}`,
+      institution:INST[Math.floor(r()*15)],publications:Math.floor(r()*40)+8,hIndex:Math.floor(r()*25)+5,
+      distribution:genDist(i*97+7,3+(i%4))};});
+}
+
+// Distance
+function treePath(a,b){
+  function anc(n,t,p=[]){if(n.id===t)return[...p,n.id];for(const c of n.children||[]){const r=anc(c,t,[...p,n.id]);if(r)return r;}return null;}
+  const pA=anc(TAXONOMY_TREE,a),pB=anc(TAXONOMY_TREE,b);if(!pA||!pB)return 99;
+  let l=0;while(l<pA.length&&l<pB.length&&pA[l]===pB[l])l++;return pA.length-l+pB.length-l;
+}
+const TDC={};
+function tDist(a,b){const k=a<b?a+'|'+b:b+'|'+a;if(!(k in TDC))TDC[k]=treePath(a,b)*0.3;return TDC[k];}
+function computeWT(dA,dB){
+  let c=0;for(let i=0;i<NUM_LEAVES;i++)if(dA[i]>0.001)for(let j=0;j<NUM_LEAVES;j++)if(dB[j]>0.001)c+=dA[i]*dB[j]*tDist(LEAF_IDS[i],LEAF_IDS[j]);return c;
+}
+function computeAff(dA,dB){return Math.exp(-computeWT(dA,dB));}
+function getMatches(paper,reviewers){
+  return reviewers.map(r=>({reviewer:r,affinity:computeAff(paper.distribution,r.distribution),wt_distance:computeWT(paper.distribution,r.distribution)}))
+    .sort((a,b)=>b.affinity-a.affinity).map((m,i)=>({...m,rank:i+1}));
+}
+
+// Upload parsing
+function parseDistRow(row){
+  const d=Array(NUM_LEAVES).fill(0);
+  LEAF_IDS.forEach((lid,i)=>{if(row[lid]!==undefined&&row[lid]!==''){const v=parseFloat(row[lid]);if(!isNaN(v))d[i]=v;}});
+  const s=d.reduce((a,b)=>a+b,0);if(s>0)return d.map(v=>v/s);return genDist(Math.floor(Math.random()*99999),3);
+}
+function parsePapersFile(file){
+  return new Promise((res,rej)=>{const reader=new FileReader();reader.onload=e=>{const txt=e.target.result;try{
+    if(file.name.endsWith('.json')){const data=JSON.parse(txt);const arr=Array.isArray(data)?data:data.papers||[];
+      res(arr.map((d,i)=>({id:d.id||`P-${String(i+1).padStart(3,'0')}`,title:d.title||`Paper ${i+1}`,abstract:d.abstract||'',year:d.year||2025,
+        distribution:d.distribution&&d.distribution.length===NUM_LEAVES?d.distribution:parseDistRow(d)})));}
+    else{const p=Papa.parse(txt,{header:true,skipEmptyLines:true});
+      res(p.data.map((row,i)=>({id:row.id||`P-${String(i+1).padStart(3,'0')}`,title:row.title||`Paper ${i+1}`,abstract:row.abstract||'',year:parseInt(row.year)||2025,
+        distribution:parseDistRow(row)})));}
+  }catch(err){rej(err);}};reader.onerror=rej;reader.readAsText(file);});
+}
+function parseReviewersFile(file){
+  return new Promise((res,rej)=>{const reader=new FileReader();reader.onload=e=>{const txt=e.target.result;try{
+    if(file.name.endsWith('.json')){const data=JSON.parse(txt);const arr=Array.isArray(data)?data:data.reviewers||[];
+      res(arr.map((d,i)=>({id:d.id||`R-${String(i+1).padStart(3,'0')}`,name:d.name||`Reviewer ${i+1}`,institution:d.institution||d.affiliation||'Unknown',
+        publications:parseInt(d.publications)||0,hIndex:parseInt(d.hIndex||d.h_index)||0,
+        distribution:d.distribution&&d.distribution.length===NUM_LEAVES?d.distribution:parseDistRow(d)})));}
+    else{const p=Papa.parse(txt,{header:true,skipEmptyLines:true});
+      res(p.data.map((row,i)=>({id:row.id||`R-${String(i+1).padStart(3,'0')}`,name:row.name||`Reviewer ${i+1}`,institution:row.institution||row.affiliation||'Unknown',
+        publications:parseInt(row.publications)||0,hIndex:parseInt(row.hIndex||row.h_index)||0,
+        distribution:parseDistRow(row)})));}
+  }catch(err){rej(err);}};reader.onerror=rej;reader.readAsText(file);});
+}
+
+function downloadSampleCSV(type,papers,reviewers){
+  let csv;
+  if(type==='papers'){csv=['id,title,abstract,year,'+LEAF_IDS.join(','),...papers.slice(0,3).map(p=>[p.id,`"${p.title}"`,`"${p.abstract}"`,p.year,...p.distribution.map(v=>v.toFixed(4))].join(','))].join('\n');}
+  else{csv=['id,name,institution,publications,hIndex,'+LEAF_IDS.join(','),...reviewers.slice(0,3).map(r=>[r.id,`"${r.name}"`,`"${r.institution}"`,r.publications,r.hIndex,...r.distribution.map(v=>v.toFixed(4))].join(','))].join('\n');}
+  const b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=`sample_${type}.csv`;a.click();URL.revokeObjectURL(u);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDERING HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function h(tag,attrs,...children){
+  const el=document.createElement(tag);
+  if(attrs)for(const[k,v]of Object.entries(attrs)){
+    if(k==='className')el.className=v;
+    else if(k==='style'&&typeof v==='object')Object.assign(el.style,v);
+    else if(k.startsWith('on'))el.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==='innerHTML')el.innerHTML=v;
+    else el.setAttribute(k,v);
+  }
+  for(const c of children.flat()){if(c==null)continue;if(typeof c==='string'||typeof c==='number')el.appendChild(document.createTextNode(c));else el.appendChild(c);}
+  return el;
+}
+
+function topTopics(dist,n=3){
+  return dist.map((v,i)=>({name:ALL_LEAVES[i].name,v,id:LEAF_IDS[i]})).filter(d=>d.v>0.01).sort((a,b)=>b.v-a.v).slice(0,n);
+}
+
+function renderDistBar(dist,color='var(--accent)',label){
+  const top=topTopics(dist,5);
+  const wrap=h('div',{style:{marginBottom:'8px'}});
+  if(label)wrap.appendChild(h('div',{className:'dist-bar-label'},label));
+  const track=h('div',{className:'dist-bar-track'});
+  top.forEach(d=>{track.appendChild(h('div',{className:'dist-bar-seg',title:`${d.name}: ${(d.v*100).toFixed(1)}%`,style:{width:`${d.v*100}%`,background:color,opacity:0.25+d.v*0.75}}));});
+  wrap.appendChild(track);
+  const leg=h('div',{className:'dist-bar-legend'});
+  top.forEach(d=>{leg.appendChild(h('span',{},h('span',{className:'pct',style:{color}},`${(d.v*100).toFixed(0)}%`),' ',h('span',{className:'topicname'},d.name)));});
+  wrap.appendChild(leg);
+  return wrap;
+}
+
+function renderSectionTitle(text,sub){
+  const d=h('div',{className:'section-title'},h('h2',{},text));
+  if(sub)d.appendChild(h('p',{className:'sub'},sub));return d;
+}
+function renderSubsection(text,num){
+  const s=h('h3',{className:'subsection'});
+  if(num)s.appendChild(h('span',{className:'num'},num));s.appendChild(document.createTextNode(text));return s;
+}
+
+function renderAcademicTable(columns,rows,caption){
+  const fig=h('figure',{style:{margin:'14px 0 20px'}});
+  const t=h('table',{className:'acad-table'});
+  const thead=h('thead');const hr=h('tr');
+  columns.forEach(c=>{hr.appendChild(h('th',{style:{textAlign:c.align||'left'}},c.label));});
+  thead.appendChild(hr);t.appendChild(thead);
+  const tbody=h('tbody');
+  rows.forEach(row=>{
+    const tr=h('tr',{className:row.onClick?'clickable':'',onClick:row.onClick||null});
+    if(row.selected)tr.classList.add('selected');
+    row.cells.forEach((cell,ci)=>{
+      const td=h('td',{style:{textAlign:columns[ci]?.align||'left',...(cell.style||{})}});
+      if(typeof cell.content==='string')td.textContent=cell.content;
+      else if(cell.content instanceof HTMLElement)td.appendChild(cell.content);
+      else td.textContent=String(cell.content||'');
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  t.appendChild(tbody);fig.appendChild(t);
+  if(caption)fig.appendChild(h('figcaption',{className:'caption'},caption));
+  return fig;
+}
+
+function renderTaxonomyTree(svgEl,w,h2,pDist,rDist){
+  const svg=d3.select(svgEl);svg.selectAll('*').remove();svg.attr('width',w).attr('height',h2);
+  const root=d3.hierarchy(TAXONOMY_TREE);d3.tree().size([w-80,h2-80])(root);
+  const g=svg.append('g').attr('transform','translate(40,30)');
+  g.selectAll('.link').data(root.links()).join('line')
+    .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y)
+    .attr('stroke','#c8c5be').attr('stroke-width',0.8);
+  g.selectAll('.node').data(root.descendants()).join('g').attr('transform',d=>`translate(${d.x},${d.y})`)
+    .each(function(d){
+      const isLeaf=!d.children||!d.children.length,li=LEAF_IDS.indexOf(d.data.id);
+      const pV=pDist&&li>=0?pDist[li]:0,rV=rDist&&li>=0?rDist[li]:0;const el=d3.select(this);
+      if(isLeaf&&(pV>0.01||rV>0.01)){
+        if(pV>0.01)el.append('rect').attr('x',-6).attr('y',-pV*28).attr('width',5).attr('height',pV*28).attr('fill','#8b1a1a').attr('opacity',0.55);
+        if(rV>0.01)el.append('rect').attr('x',1).attr('y',-rV*28).attr('width',5).attr('height',rV*28).attr('fill','#1a4a8b').attr('opacity',0.55);
+      }
+      el.append('circle').attr('r',isLeaf?3:4).attr('fill','#fff')
+        .attr('stroke',isLeaf&&(pV>0.01||rV>0.01)?'#1c1c1c':'#999').attr('stroke-width',isLeaf&&(pV>0.01||rV>0.01)?1.2:0.8);
+      el.append('text').attr('dy',isLeaf?15:-10).attr('text-anchor','middle')
+        .attr('fill',isLeaf?'#999':'#5f5f5f').attr('font-size',isLeaf?'7.5px':'9px')
+        .attr('font-weight',isLeaf?400:600).attr('font-family',"'Source Sans 3',sans-serif")
+        .text(d.data.name.length>20?d.data.name.slice(0,18)+'…':d.data.name);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SYNTH_PAPERS=genSynthPapers();
+const SYNTH_REVIEWERS=genSynthReviewers();
+
+const state={
+  page:'upload',
+  papers:SYNTH_PAPERS,
+  reviewers:SYNTH_REVIEWERS,
+  dataSource:'synth',
+  selectedPaper:null,
+  selectedReviewer:null,
+  sortReviewers:'name',
+  searchPapers:'',
+};
+
+function setState(patch){Object.assign(state,patch);render();}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE RENDERERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderUploadPage(){
+  const wrap=h('div',{className:'page-enter'});
+  wrap.appendChild(renderSectionTitle('0   Data Management','Upload custom datasets or use synthesized demonstration data'));
+
+  // Status card
+  const statusCard=h('div',{className:'card mb-22'});
+  const statusFlex=h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}});
+  const statusLeft=h('div');
+  statusLeft.appendChild(h('div',{style:{fontSize:'10px',color:'var(--faint)',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'4px'}},'Current Data Source'));
+  statusLeft.appendChild(h('div',{style:{fontFamily:'var(--serif)',fontSize:'15px',fontWeight:700,color:'var(--ink)'}},state.dataSource==='synth'?'Synthesized Demonstration Data':'User-Uploaded Data'));
+  statusLeft.appendChild(h('div',{style:{fontFamily:'var(--mono)',fontSize:'11px',color:'var(--muted)',marginTop:'4px'}},
+    `|𝒫| = ${state.papers.length} submissions  ·  |ℛ| = ${state.reviewers.length} reviewers  ·  |L| = ${NUM_LEAVES} leaf topics`));
+  statusFlex.appendChild(statusLeft);
+  if(state.dataSource!=='synth'){
+    const resetBtn=h('button',{className:'btn-outline accent',onClick:()=>{setState({papers:SYNTH_PAPERS,reviewers:SYNTH_REVIEWERS,dataSource:'synth',selectedPaper:null});}},
+      'Reset to Synthesized Data');
+    statusFlex.appendChild(resetBtn);
+  }
+  statusCard.appendChild(statusFlex);wrap.appendChild(statusCard);
+
+  // Two columns
+  const cols=h('div',{style:{display:'flex',gap:'24px'}});
+
+  // Papers upload
+  const left=h('div',{style:{flex:1}});
+  left.appendChild(renderSubsection('Upload Submissions','0.1'));
+
+  const pZone=h('div',{className:'drop-zone',id:'paper-drop'});
+  pZone.innerHTML=`<div class="label">Upload paper data</div><div class="hint">Click to browse or drag & drop — accepts <code>.csv</code> or <code>.json</code></div>`;
+  const pInput=h('input',{type:'file',accept:'.csv,.json',style:{display:'none'},id:'paper-input'});
+  pZone.addEventListener('click',()=>pInput.click());
+  pZone.addEventListener('dragover',e=>{e.preventDefault();pZone.classList.add('dragging');});
+  pZone.addEventListener('dragleave',()=>pZone.classList.remove('dragging'));
+  pZone.addEventListener('drop',e=>{e.preventDefault();pZone.classList.remove('dragging');if(e.dataTransfer.files[0])handlePaperUpload(e.dataTransfer.files[0],left);});
+  pInput.addEventListener('change',e=>{if(e.target.files[0])handlePaperUpload(e.target.files[0],left);});
+  left.appendChild(pZone);left.appendChild(pInput);
+  left.appendChild(h('div',{id:'paper-status'}));
+
+  const pFmt=h('div',{className:'mt-14'});
+  pFmt.appendChild(h('div',{style:{fontSize:'11.5px',fontWeight:700,color:'var(--ink)',marginBottom:'6px'}},'Expected CSV format:'));
+  pFmt.appendChild(h('pre',{className:'code-block'},`id,title,abstract,year,${LEAF_IDS.slice(0,5).join(',')},...\nP-001,"Paper Title","Abstract text",2025,0.35,0.15,0.0,0.0,0.5,...`));
+  pFmt.appendChild(h('div',{style:{fontSize:'11px',color:'var(--muted)',lineHeight:'1.5'}},
+    `Required: id, title. Optional: abstract, year. Topic columns named by leaf IDs (${LEAF_IDS.slice(0,3).join(', ')}, …) are auto-normalized. If omitted, random distributions are assigned.`));
+  const pDlBtn=h('button',{className:'btn-outline blue',style:{marginTop:'6px'},onClick:()=>downloadSampleCSV('papers',state.papers,state.reviewers)},'↓ Download Sample CSV');
+  pFmt.appendChild(pDlBtn);
+  pFmt.appendChild(h('div',{className:'mt-16'}));
+  pFmt.appendChild(h('div',{style:{fontSize:'11.5px',fontWeight:700,color:'var(--ink)',marginBottom:'6px'}},'Expected JSON format:'));
+  pFmt.appendChild(h('pre',{className:'code-block'},`[\n  { "id": "P-001", "title": "Paper Title",\n    "abstract": "...",\n    "distribution": [0.35, 0.15, 0.0, ...] },\n  ...\n]`));
+  left.appendChild(pFmt);
+  cols.appendChild(left);
+
+  // Reviewers upload
+  const right=h('div',{style:{flex:1}});
+  right.appendChild(renderSubsection('Upload Reviewers','0.2'));
+
+  const rZone=h('div',{className:'drop-zone',id:'reviewer-drop'});
+  rZone.innerHTML=`<div class="label">Upload reviewer data</div><div class="hint">Click to browse or drag & drop — accepts <code>.csv</code> or <code>.json</code></div>`;
+  const rInput=h('input',{type:'file',accept:'.csv,.json',style:{display:'none'},id:'reviewer-input'});
+  rZone.addEventListener('click',()=>rInput.click());
+  rZone.addEventListener('dragover',e=>{e.preventDefault();rZone.classList.add('dragging');});
+  rZone.addEventListener('dragleave',()=>rZone.classList.remove('dragging'));
+  rZone.addEventListener('drop',e=>{e.preventDefault();rZone.classList.remove('dragging');if(e.dataTransfer.files[0])handleReviewerUpload(e.dataTransfer.files[0],right);});
+  rInput.addEventListener('change',e=>{if(e.target.files[0])handleReviewerUpload(e.target.files[0],right);});
+  right.appendChild(rZone);right.appendChild(rInput);
+  right.appendChild(h('div',{id:'reviewer-status'}));
+
+  const rFmt=h('div',{className:'mt-14'});
+  rFmt.appendChild(h('div',{style:{fontSize:'11.5px',fontWeight:700,color:'var(--ink)',marginBottom:'6px'}},'Expected CSV format:'));
+  rFmt.appendChild(h('pre',{className:'code-block'},`id,name,institution,publications,hIndex,${LEAF_IDS.slice(0,5).join(',')},...\nR-001,"Jane Smith","MIT",42,18,0.0,0.6,0.0,0.0,0.4,...`));
+  rFmt.appendChild(h('div',{style:{fontSize:'11px',color:'var(--muted)'}},`Required: id, name. Optional: institution, publications, hIndex.`));
+  const rDlBtn=h('button',{className:'btn-outline blue',style:{marginTop:'6px'},onClick:()=>downloadSampleCSV('reviewers',state.papers,state.reviewers)},'↓ Download Sample CSV');
+  rFmt.appendChild(rDlBtn);
+  rFmt.appendChild(h('div',{className:'mt-16'}));
+  rFmt.appendChild(h('div',{style:{fontSize:'11.5px',fontWeight:700,color:'var(--ink)',marginBottom:'6px'}},'Expected JSON format:'));
+  rFmt.appendChild(h('pre',{className:'code-block'},`[\n  { "id": "R-001", "name": "Jane Smith",\n    "institution": "MIT",\n    "publications": 42, "hIndex": 18,\n    "distribution": [0.0, 0.6, 0.0, ...] },\n  ...\n]`));
+  right.appendChild(rFmt);
+  cols.appendChild(right);
+  wrap.appendChild(cols);
+
+  // Leaf reference
+  wrap.appendChild(renderSubsection('Taxonomy Leaf Topic Reference','0.3'));
+  wrap.appendChild(h('div',{style:{fontSize:'11.5px',color:'var(--muted)',marginBottom:'10px'}},
+    `The following ${NUM_LEAVES} leaf-topic IDs are used as column headers (CSV) or distribution indices (JSON):`));
+  const refBox=h('div',{style:{border:'1px solid var(--rule)',background:'var(--paper)',padding:'12px 16px',display:'flex',flexWrap:'wrap',gap:'4px 16px'}});
+  ALL_LEAVES.forEach((l,i)=>{
+    const item=h('div',{style:{fontFamily:'var(--mono)',fontSize:'10.5px',color:'var(--text)',minWidth:'200px'}});
+    item.innerHTML=`<span style="color:var(--faint);margin-right:4px">[${i}]</span><span style="color:var(--accent);font-weight:600">${l.id}</span><span style="color:var(--muted);font-family:var(--sans);margin-left:6px">${l.name}</span>`;
+    refBox.appendChild(item);
+  });
+  wrap.appendChild(refBox);
+
+  // Preview
+  if(state.papers.length>0){
+    wrap.appendChild(renderSubsection('Data Preview','0.4'));
+    wrap.appendChild(renderAcademicTable(
+      [{label:'ID'},{label:'Title'},{label:'Top Topics'}],
+      state.papers.slice(0,5).map(p=>{const t=topTopics(p.distribution);return{cells:[
+        {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'10px',color:'var(--faint)'}},p.id)},
+        {content:p.title},
+        {content:t.map(x=>`${x.name} (${(x.v*100).toFixed(0)}%)`).join('; ')}
+      ]};}),
+      `Preview: first 5 of ${state.papers.length} loaded submissions.`
+    ));
+    wrap.appendChild(renderAcademicTable(
+      [{label:'ID'},{label:'Name'},{label:'Institution'},{label:'Top Topics'}],
+      state.reviewers.slice(0,5).map(r=>{const t=topTopics(r.distribution);return{cells:[
+        {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'10px',color:'var(--faint)'}},r.id)},
+        {content:r.name},
+        {content:r.institution},
+        {content:t.map(x=>`${x.name} (${(x.v*100).toFixed(0)}%)`).join('; ')}
+      ]};}),
+      `Preview: first 5 of ${state.reviewers.length} loaded reviewers.`
+    ));
+  }
+  return wrap;
+}
+
+function handlePaperUpload(file,container){
+  const statusEl=container.querySelector('#paper-status')||document.getElementById('paper-status');
+  statusEl.innerHTML='';statusEl.appendChild(h('div',{className:'status-badge info'},`Parsing ${file.name}…`));
+  const zone=container.querySelector('#paper-drop')||document.getElementById('paper-drop');
+  parsePapersFile(file).then(parsed=>{
+    if(!parsed.length)throw new Error('No valid rows.');
+    zone.innerHTML+=`<div class="filename">✓ ${file.name}</div>`;
+    statusEl.innerHTML='';statusEl.appendChild(h('div',{className:'status-badge success'},`Successfully loaded ${parsed.length} papers from ${file.name}.`));
+    setState({papers:parsed,dataSource:'user',selectedPaper:null});
+  }).catch(err=>{statusEl.innerHTML='';statusEl.appendChild(h('div',{className:'status-badge error'},`Error: ${err.message}`));});
+}
+
+function handleReviewerUpload(file,container){
+  const statusEl=container.querySelector('#reviewer-status')||document.getElementById('reviewer-status');
+  statusEl.innerHTML='';statusEl.appendChild(h('div',{className:'status-badge info'},`Parsing ${file.name}…`));
+  const zone=container.querySelector('#reviewer-drop')||document.getElementById('reviewer-drop');
+  parseReviewersFile(file).then(parsed=>{
+    if(!parsed.length)throw new Error('No valid rows.');
+    zone.innerHTML+=`<div class="filename">✓ ${file.name}</div>`;
+    statusEl.innerHTML='';statusEl.appendChild(h('div',{className:'status-badge success'},`Successfully loaded ${parsed.length} reviewers from ${file.name}.`));
+    setState({reviewers:parsed,dataSource:'user',selectedPaper:null});
+  }).catch(err=>{statusEl.innerHTML='';statusEl.appendChild(h('div',{className:'status-badge error'},`Error: ${err.message}`));});
+}
+
+function renderDashboardPage(){
+  const wrap=h('div',{className:'page-enter'});
+  wrap.appendChild(renderSectionTitle('1   Dashboard','System overview and dataset statistics'));
+
+  let sum=0,cnt=0;
+  state.papers.slice(0,8).forEach(p=>{state.reviewers.slice(0,10).forEach(r=>{sum+=computeAff(p.distribution,r.distribution);cnt++;});});
+  const avg=cnt>0?sum/cnt:0;
+
+  const stats=h('div',{style:{display:'flex',flexWrap:'wrap',gap:'12px',marginBottom:'28px'}});
+  [[state.papers.length,'Submissions','Active papers'],[state.reviewers.length,'Reviewers','Candidate pool'],[NUM_LEAVES,'Leaf Topics','Depth = 4'],[avg.toFixed(3),'Mean Affinity','Sampled pairs']].forEach(([v,l,n])=>{
+    const box=h('div',{className:'stat-box'});
+    box.appendChild(h('div',{className:'label'},l));box.appendChild(h('div',{className:'value'},String(v)));box.appendChild(h('div',{className:'note'},n));stats.appendChild(box);
+  });
+  wrap.appendChild(stats);
+
+  wrap.appendChild(renderSubsection('Induced Taxonomy Structure','1.1'));
+  const tFig=h('figure',{style:{margin:'0 0 24px',border:'1px solid var(--rule)',padding:'16px',background:'var(--paper)',overflowX:'auto'}});
+  const tSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  tFig.appendChild(tSvg);tFig.appendChild(h('figcaption',{className:'caption'},'Figure 1.  Hierarchical taxonomy induced via recursive vMF clustering.'));
+  wrap.appendChild(tFig);
+  setTimeout(()=>renderTaxonomyTree(tSvg,740,370,null,null),10);
+
+  wrap.appendChild(renderSubsection('Sample Affinity Matrix','1.2'));
+  const rSlice=state.reviewers.slice(0,7);
+  wrap.appendChild(renderAcademicTable(
+    [{label:'Submission'},...rSlice.map(r=>({label:r.name.split(' ').pop(),align:'center'}))],
+    state.papers.slice(0,6).map(p=>({cells:[
+      {content:h('span',{style:{fontSize:'11.5px',maxWidth:'220px',display:'inline-block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},p.title)},
+      ...rSlice.map(r=>{const a=computeAff(p.distribution,r.distribution);
+        return{content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px',fontWeight:a>0.55?700:400,color:a>0.55?'var(--accent)':'var(--text)'}},a.toFixed(3)),
+          style:{background:`rgba(139,26,26,${Math.pow(a,0.6)*0.07})`}};})
+    ]})),
+    'Table 1.  Pairwise affinity scores Aff(s, r) = exp(−W_T) for sample submissions and reviewers.'
+  ));
+  return wrap;
+}
+
+function renderPapersPage(){
+  const wrap=h('div',{className:'page-enter'});
+  wrap.appendChild(renderSectionTitle(`2   Submissions`,`${state.papers.length} papers in the current submission batch`));
+
+  const input=h('input',{type:'text',placeholder:'Search by title keyword…',value:state.searchPapers,
+    style:{width:'100%',padding:'8px 14px',fontSize:'13px',fontFamily:'var(--sans)',background:'var(--paper)',border:'1px solid var(--rule)',color:'var(--ink)',outline:'none',marginBottom:'16px'}});
+  input.addEventListener('input',e=>{state.searchPapers=e.target.value;const main=document.querySelector('.main');main.innerHTML='';main.appendChild(renderPapersPage());});
+  wrap.appendChild(input);
+
+  const filtered=state.papers.filter(p=>p.title.toLowerCase().includes(state.searchPapers.toLowerCase()));
+  wrap.appendChild(renderAcademicTable(
+    [{label:'ID'},{label:'Title'},{label:'Primary Topics'}],
+    filtered.map(p=>{const t=topTopics(p.distribution);return{
+      onClick:()=>setState({selectedPaper:p.id,selectedReviewer:null,page:'matching'}),
+      cells:[
+        {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'10.5px',color:'var(--faint)'}},p.id)},
+        {content:h('span',{style:{fontWeight:600,fontSize:'12.5px'}},p.title)},
+        {content:t.map(x=>`${x.name} (${(x.v*100).toFixed(0)}%)`).join('; ')}
+      ]};}),
+    'Table 2.  Click any row to view ranked reviewer assignments.'
+  ));
+  return wrap;
+}
+
+function renderMatchingPage(){
+  const paper=state.papers.find(p=>p.id===state.selectedPaper);
+  if(!paper)return h('div',{},'Paper not found.');
+  const matches=getMatches(paper,state.reviewers);
+  const selM=state.selectedReviewer?matches.find(m=>m.reviewer.id===state.selectedReviewer):null;
+
+  const wrap=h('div',{className:'page-enter'});
+  const backBtn=h('button',{style:{background:'none',border:'1px solid var(--rule)',padding:'5px 14px',fontFamily:'var(--sans)',fontSize:'11.5px',color:'var(--muted)',cursor:'pointer',marginBottom:'14px'},onClick:()=>setState({page:'papers',selectedReviewer:null})},'← Back to Submissions');
+  wrap.appendChild(backBtn);
+  wrap.appendChild(renderSectionTitle('3   Reviewer Matching','Taxonomy-induced affinity estimation via weighted Tree–Wasserstein distance'));
+
+  // Paper card
+  const card=h('div',{className:'card mb-22'});
+  card.appendChild(h('div',{className:'tag accent'},`Submission ${paper.id}`));
+  card.appendChild(h('div',{className:'title'},paper.title));
+  if(paper.abstract)card.appendChild(h('p',{style:{margin:'0 0 14px'}},paper.abstract));
+  card.appendChild(renderDistBar(paper.distribution,'var(--accent)','Topic distribution p_s'));
+  wrap.appendChild(card);
+
+  const cols=h('div',{style:{display:'flex',gap:'24px',alignItems:'flex-start'}});
+
+  // Left: ranked table
+  const left=h('div',{style:{flex:'1 1 440px',minWidth:0}});
+  left.appendChild(renderSubsection('Ranked Candidates','3.1'));
+  left.appendChild(renderAcademicTable(
+    [{label:'#',align:'center'},{label:'Reviewer'},{label:'Institution'},{label:'W_T',align:'right'},{label:'Affinity',align:'right'}],
+    matches.slice(0,15).map(m=>({
+      selected:m.reviewer.id===state.selectedReviewer,
+      onClick:()=>setState({selectedReviewer:m.reviewer.id===state.selectedReviewer?null:m.reviewer.id}),
+      cells:[
+        {content:h('span',{style:{fontFamily:'var(--mono)',fontWeight:m.rank<=3?700:400,color:m.rank<=3?'var(--accent)':'var(--ink)'}},String(m.rank))},
+        {content:h('span',{style:{fontWeight:m.reviewer.id===state.selectedReviewer?700:500}},m.reviewer.name)},
+        {content:h('span',{style:{fontSize:'11px',color:'var(--muted)',fontStyle:'italic'}},m.reviewer.institution)},
+        {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px'}},m.wt_distance.toFixed(4))},
+        {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px',fontWeight:700,color:m.affinity>0.55?'var(--accent)':m.affinity>0.3?'var(--blue)':'var(--muted)'}},m.affinity.toFixed(4))},
+      ]
+    })),
+    `Table 3.  Top-15 reviewers for ${paper.id} ranked by Aff(s, r).`
+  ));
+  cols.appendChild(left);
+
+  // Right: detail
+  const right=h('div',{style:{flex:'0 0 340px',position:'sticky',top:'20px'}});
+  if(selM){
+    right.appendChild(renderSubsection('Pairwise Comparison','3.2'));
+    const dc=h('div',{style:{border:'1px solid var(--rule)',padding:'14px 18px',background:'var(--paper)',marginBottom:'14px'}});
+    dc.appendChild(h('div',{style:{fontSize:'9.5px',color:'var(--blue)',fontWeight:700,textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'6px'}},`Reviewer ${selM.reviewer.id}`));
+    dc.appendChild(h('div',{style:{fontFamily:'var(--serif)',fontSize:'15.5px',fontWeight:700,color:'var(--ink)',marginBottom:'2px'}},selM.reviewer.name));
+    dc.appendChild(h('div',{style:{fontSize:'11.5px',color:'var(--muted)',fontStyle:'italic',marginBottom:'14px'}},selM.reviewer.institution));
+
+    const statsRow=h('div',{style:{display:'flex',gap:'1px',marginBottom:'16px'}});
+    [['Pubs.',selM.reviewer.publications],['h-index',selM.reviewer.hIndex],['Rank',`#${selM.rank}`]].forEach(([l,v])=>{
+      const b=h('div',{style:{flex:1,textAlign:'center',padding:'8px 4px',border:'1px solid var(--rule-lt)',background:'var(--bg)'}});
+      b.appendChild(h('div',{style:{fontFamily:'var(--mono)',fontSize:'17px',fontWeight:700,color:'var(--ink)'}},String(v)));
+      b.appendChild(h('div',{style:{fontSize:'9px',color:'var(--faint)',textTransform:'uppercase',letterSpacing:'0.5px'}},l));
+      statsRow.appendChild(b);
+    });
+    dc.appendChild(statsRow);
+    dc.appendChild(renderDistBar(selM.reviewer.distribution,'var(--blue)','Reviewer distribution p_r'));
+    dc.appendChild(h('div',{style:{marginTop:'8px'}}));
+    dc.appendChild(renderDistBar(paper.distribution,'var(--accent)','Submission distribution p_s'));
+
+    const scoreBox=h('div',{style:{marginTop:'14px',padding:'10px 14px',background:'var(--bg)',border:'1px solid var(--rule-lt)',fontSize:'12px'}});
+    const sr1=h('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'4px'}});
+    sr1.appendChild(h('span',{style:{color:'var(--muted)'}},'Tree–Wasserstein distance:'));
+    sr1.appendChild(h('span',{style:{fontFamily:'var(--mono)',fontWeight:700,color:'var(--ink)'}},selM.wt_distance.toFixed(5)));
+    scoreBox.appendChild(sr1);
+    const sr2=h('div',{style:{display:'flex',justifyContent:'space-between'}});
+    sr2.appendChild(h('span',{style:{color:'var(--muted)'}},'Affinity score:'));
+    sr2.appendChild(h('span',{style:{fontFamily:'var(--mono)',fontWeight:700,color:'var(--accent)'}},selM.affinity.toFixed(5)));
+    scoreBox.appendChild(sr2);
+    dc.appendChild(scoreBox);
+    right.appendChild(dc);
+
+    // Tree viz
+    const treeFig=h('figure',{style:{border:'1px solid var(--rule)',padding:'14px',background:'var(--paper)',margin:0}});
+    const treeSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    treeFig.appendChild(treeSvg);
+    const tLegend=h('div',{style:{display:'flex',gap:'18px',justifyContent:'center',marginTop:'6px'}});
+    tLegend.innerHTML=`<span style="font-size:10px;color:var(--muted)"><span style="display:inline-block;width:10px;height:3px;background:var(--accent);margin-right:4px;vertical-align:middle"></span><em>p<sub>s</sub></em></span>
+      <span style="font-size:10px;color:var(--muted)"><span style="display:inline-block;width:10px;height:3px;background:var(--blue);margin-right:4px;vertical-align:middle"></span><em>p<sub>r</sub></em></span>`;
+    treeFig.appendChild(tLegend);
+    treeFig.appendChild(h('figcaption',{className:'caption'},`Figure 2.  Taxonomy overlay for ${paper.id} vs. ${selM.reviewer.id}.`));
+    right.appendChild(treeFig);
+    setTimeout(()=>renderTaxonomyTree(treeSvg,310,280,paper.distribution,selM.reviewer.distribution),10);
+  }else{
+    right.appendChild(h('div',{style:{border:'1px dashed var(--rule)',padding:'36px 20px',textAlign:'center',background:'var(--paper)'}},
+      h('div',{style:{fontFamily:'var(--serif)',fontSize:'13px',color:'var(--faint)',fontStyle:'italic',lineHeight:'1.5'}},
+        'Select a reviewer from the ranked list to inspect the distributional comparison.')));
+  }
+  cols.appendChild(right);wrap.appendChild(cols);
+  return wrap;
+}
+
+function renderReviewersPage(){
+  const wrap=h('div',{className:'page-enter'});
+  wrap.appendChild(renderSectionTitle(`4   Reviewer Pool`,`${state.reviewers.length} candidate reviewers in the pool`));
+
+  const sortRow=h('div',{style:{display:'flex',gap:'8px',marginBottom:'14px',alignItems:'center'}});
+  sortRow.appendChild(h('span',{style:{fontSize:'12px',color:'var(--muted)'}},'Sort by:'));
+  [['name','Name'],['pubs','Publications'],['hindex','h-index']].forEach(([k,l])=>{
+    sortRow.appendChild(h('button',{className:`sort-btn ${state.sortReviewers===k?'active':''}`,
+      onClick:()=>setState({sortReviewers:k})},l));
+  });
+  wrap.appendChild(sortRow);
+
+  const sorted=[...state.reviewers].sort((a,b)=>state.sortReviewers==='name'?a.name.localeCompare(b.name):state.sortReviewers==='pubs'?b.publications-a.publications:b.hIndex-a.hIndex);
+  wrap.appendChild(renderAcademicTable(
+    [{label:'ID'},{label:'Name'},{label:'Institution'},{label:'Pubs',align:'center'},{label:'h',align:'center'},{label:'Primary Topics'}],
+    sorted.map(r=>{const t=topTopics(r.distribution);return{cells:[
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'10px',color:'var(--faint)'}},r.id)},
+      {content:h('span',{style:{fontWeight:600,fontSize:'12.5px'}},r.name)},
+      {content:h('span',{style:{fontSize:'11px',color:'var(--muted)',fontStyle:'italic'}},r.institution)},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'12px'}},String(r.publications))},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'12px'}},String(r.hIndex))},
+      {content:t.map(x=>`${x.name} (${(x.v*100).toFixed(0)}%)`).join('; ')}
+    ]};}),
+    'Table 4.  Reviewer pool with bibliometric statistics and expertise distributions.'
+  ));
+  return wrap;
+}
+
+function renderAnalyticsPage(){
+  const wrap=h('div',{className:'page-enter'});
+  wrap.appendChild(renderSectionTitle('5   Analytics','Topic coverage and reviewer supply–demand analysis'));
+
+  const lc={};ALL_LEAVES.forEach(l=>{lc[l.id]={name:l.name,pM:0,rM:0};});
+  state.papers.forEach(p=>p.distribution.forEach((v,i)=>{lc[LEAF_IDS[i]].pM+=v;}));
+  state.reviewers.forEach(r=>r.distribution.forEach((v,i)=>{lc[LEAF_IDS[i]].rM+=v;}));
+  const counts=Object.values(lc).sort((a,b)=>b.pM-a.pM);
+  const maxM=Math.max(...counts.map(c=>Math.max(c.pM,c.rM)),1);
+
+  wrap.appendChild(renderSubsection('Aggregated Topic Mass','5.1'));
+  const chartFig=h('figure',{style:{border:'1px solid var(--rule)',padding:'16px 20px',background:'var(--paper)',margin:'0 0 6px'}});
+  const chartInner=h('div',{style:{display:'flex',flexDirection:'column',gap:'5px'}});
+  counts.filter(c=>c.pM>0.1||c.rM>0.1).forEach(c=>{
+    const row=h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}});
+    row.appendChild(h('div',{style:{width:'120px',fontFamily:'var(--sans)',fontSize:'10.5px',color:'var(--muted)',textAlign:'right',flexShrink:0}},c.name));
+    const bars=h('div',{style:{flex:1,display:'flex',flexDirection:'column',gap:'2px'}});
+    bars.appendChild(h('div',{style:{height:'7px',background:'var(--accent)',opacity:0.5,width:`${(c.pM/maxM)*100}%`,minWidth:'1px'}}));
+    bars.appendChild(h('div',{style:{height:'7px',background:'var(--blue)',opacity:0.5,width:`${(c.rM/maxM)*100}%`,minWidth:'1px'}}));
+    row.appendChild(bars);
+    const nums=h('div',{style:{width:'90px',fontFamily:'var(--mono)',fontSize:'9.5px',color:'var(--faint)',textAlign:'right',flexShrink:0}});
+    nums.innerHTML=`<span style="color:var(--accent)">${c.pM.toFixed(1)}</span> / <span style="color:var(--blue)">${c.rM.toFixed(1)}</span>`;
+    row.appendChild(nums);
+    chartInner.appendChild(row);
+  });
+  chartFig.appendChild(chartInner);
+  const legend=h('div',{style:{display:'flex',gap:'20px',marginTop:'12px',justifyContent:'center'}});
+  legend.innerHTML=`<span style="font-size:10px;color:var(--muted)"><span style="display:inline-block;width:12px;height:4px;background:var(--accent);margin-right:4px;vertical-align:middle;opacity:0.6"></span>Paper demand</span>
+    <span style="font-size:10px;color:var(--muted)"><span style="display:inline-block;width:12px;height:4px;background:var(--blue);margin-right:4px;vertical-align:middle;opacity:0.6"></span>Reviewer supply</span>`;
+  chartFig.appendChild(legend);
+  chartFig.appendChild(h('figcaption',{className:'caption'},'Figure 3.  Aggregated probability mass per leaf topic.'));
+  wrap.appendChild(chartFig);
+
+  const tbCols=h('div',{style:{display:'flex',gap:'24px',marginTop:'8px'}});
+  const tLeft=h('div',{style:{flex:1}});
+  tLeft.appendChild(renderSubsection('Coverage Deficits','5.2'));
+  tLeft.appendChild(renderAcademicTable(
+    [{label:'Topic'},{label:'Demand',align:'right'},{label:'Supply',align:'right'},{label:'Deficit',align:'right'}],
+    counts.filter(c=>c.pM>c.rM*1.1&&c.pM>0.3).slice(0,6).map(c=>({cells:[
+      {content:c.name},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px'}},c.pM.toFixed(2))},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px'}},c.rM.toFixed(2))},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px',color:'var(--accent)',fontWeight:700}},`${((c.pM-c.rM)/c.pM*100).toFixed(0)}%`)}
+    ]})),
+    'Table 5.  Topics where reviewer supply falls below paper demand.'
+  ));
+  tbCols.appendChild(tLeft);
+
+  const tRight=h('div',{style:{flex:1}});
+  tRight.appendChild(renderSubsection('Surplus Topics','5.3'));
+  tRight.appendChild(renderAcademicTable(
+    [{label:'Topic'},{label:'Supply',align:'right'},{label:'Demand',align:'right'},{label:'Surplus',align:'right'}],
+    counts.filter(c=>c.rM>c.pM*1.1&&c.rM>0.3).slice(0,6).map(c=>({cells:[
+      {content:c.name},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px'}},c.rM.toFixed(2))},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px'}},c.pM.toFixed(2))},
+      {content:h('span',{style:{fontFamily:'var(--mono)',fontSize:'11.5px',color:'var(--teal)',fontWeight:700}},`+${((c.rM-c.pM)/Math.max(c.pM,0.01)*100).toFixed(0)}%`)}
+    ]})),
+    'Table 6.  Topics with excess reviewer capacity.'
+  ));
+  tbCols.appendChild(tRight);
+  wrap.appendChild(tbCols);
+  return wrap;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN RENDER
+// ═══════════════════════════════════════════════════════════════════════════
+
+const NAV=[
+  {id:'upload',label:'Data Management',num:'§0',group:'Data'},
+  {id:'dashboard',label:'Dashboard',num:'§1',group:'Overview'},
+  {id:'papers',label:'Submissions',num:'§2',group:'Matching'},
+  {id:'reviewers',label:'Reviewer Pool',num:'§4',group:'Matching'},
+  {id:'analytics',label:'Analytics',num:'§5',group:'Analysis'},
+];
+
+function render(){
+  const app=document.getElementById('app');app.innerHTML='';
+
+  // Sidebar
+  const sidebar=h('aside',{className:'sidebar'});
+  const brand=h('div',{className:'sidebar-brand'});
+  brand.appendChild(h('h1',{},'TaxoMatch'));
+  brand.appendChild(h('div',{className:'sub',innerHTML:'Paper–Reviewer Matching<br>via Weighted Tree–Wasserstein<br>Optimal Transport'}));
+  brand.appendChild(h('div',{className:'bar'}));
+  sidebar.appendChild(brand);
+
+  const nav=h('nav');let lastG='';
+  NAV.forEach(item=>{
+    const active=state.page===item.id||(item.id==='papers'&&state.page==='matching');
+    if(item.group!==lastG){lastG=item.group;nav.appendChild(h('div',{className:'nav-group'},item.group));}
+    const btn=h('button',{className:`nav-btn ${active?'active':''}`,onClick:()=>{
+      const patch={page:item.id};if(item.id!=='papers')patch.selectedPaper=null;patch.selectedReviewer=null;setState(patch);
+    }},h('span',{className:'num'},item.num),item.label);
+    nav.appendChild(btn);
+  });
+  sidebar.appendChild(nav);
+
+  const footer=h('div',{className:'sidebar-footer'});
+  const meta=h('div',{className:'meta'});
+  if(state.dataSource==='user')meta.innerHTML=`<span class="data-indicator-user">● USER DATA</span><br>`;
+  else meta.innerHTML=`● SYNTH. DATA<br>`;
+  meta.innerHTML+=`|𝒫| = ${state.papers.length} &ensp; |ℛ| = ${state.reviewers.length}`;
+  footer.appendChild(meta);sidebar.appendChild(footer);
+  app.appendChild(sidebar);
+
+  // Main
+  const main=h('div',{className:'main'});
+  switch(state.page){
+    case'upload':main.appendChild(renderUploadPage());break;
+    case'dashboard':main.appendChild(renderDashboardPage());break;
+    case'papers':main.appendChild(renderPapersPage());break;
+    case'matching':main.appendChild(renderMatchingPage());break;
+    case'reviewers':main.appendChild(renderReviewersPage());break;
+    case'analytics':main.appendChild(renderAnalyticsPage());break;
+  }
+  app.appendChild(main);
+}
+
+render();
+</script>
+</body>
+</html>
